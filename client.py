@@ -18,6 +18,7 @@ import warnings
 warnings.filterwarnings('ignore')
 numpy.set_printoptions(suppress=False)
 torch.set_printoptions(sci_mode=False)
+torch.set_num_threads(8)
 import tenseal as ts
 import pickle
 
@@ -345,7 +346,7 @@ def train(discriminator_arrived, generator_arrived):
     optim_D = optim.Adam(D.parameters(), lr=lr, betas=(beta1, 0.999))
 
     if not disable_dp:
-        privacy_engine = PrivacyEngine(D)
+        privacy_engine = PrivacyEngine()
 
         D, optim_D, dataloader = privacy_engine.make_private(
 
@@ -557,10 +558,7 @@ def train(discriminator_arrived, generator_arrived):
     return cipher_d, cipher_g
 
 
-# context = ts.context_from(read_data("secret.txt"))
-context = ts.context(ts.SCHEME_TYPE.CKKS, poly_modulus_degree=8192, coeff_mod_bit_sizes=[60, 40, 40, 60])
-context.generate_galois_keys()
-context.global_scale = 2 ** 40
+context = ts.context_from(read_data("secret.txt"))
 
 for request in range(10):
 

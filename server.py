@@ -247,7 +247,7 @@ while c < 39:
         else:
             data_list_generator.append(message2)
 
-        if len(data_list_dicriminator) == 4 and len(data_list_generator) == 4:
+        if len(data_list_dicriminator) == 2 and len(data_list_generator) == 2:
 
             print("Enough data recevied")
 
