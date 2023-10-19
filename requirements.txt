@@ -7,3 +7,4 @@ torchsummary
 opacus
 imutils
 opencv-python
+matplot-backend-kitty
