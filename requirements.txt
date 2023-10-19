@@ -6,4 +6,4 @@ tqdm
 torchsummary
 opacus
 imutils
-cv2
+opencv-python
