@@ -1,40 +1,24 @@
-import pickle
-import numpy
-from collections import OrderedDict
-import zmq
-import sys
-import threading
+import os
 import time
-from random import randint, random
-import time
-import zmq
-
-import torch
-import torch.nn as nn
-import torchvision
-import torchvision.transforms as transforms
-
 import warnings
 
-warnings.filterwarnings('ignore')
+import numpy
+import torch
+import zmq
+
+warnings.filterwarnings("ignore")
 numpy.set_printoptions(suppress=False)
 torch.set_printoptions(sci_mode=False)
-import tenseal as ts
+
+from damgard_jurik import keygen
+
 import pickle
 
 ################################################################
-import torch
-import torchvision
-from torchvision import datasets, transforms
-import matplotlib.pyplot as plt
-from tqdm.notebook import tqdm
-from torchsummary import summary
-import numpy as np
-import torchvision.utils as vutils
-from torch import nn, optim
-from torch.nn import functional as F
+from torch import nn
 
 ngpu = 1
+n_clients = 3
 
 
 class Discriminator(nn.Module):
@@ -42,18 +26,14 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
         self.ngpu = ngpu
         self.main = nn.Sequential(
-
             nn.Conv2d(1, 32, 4, 2, 1, bias=False),
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
-
             nn.Conv2d(32, 64, 4, 2, 1, bias=False),
             nn.GroupNorm(64, 64),
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
-
             nn.Conv2d(64, 128, 3, 2, 1, bias=False),
             nn.GroupNorm(64, 128),
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
-
             nn.Conv2d(128, 1, kernel_size=(4, 4), stride=1, bias=False),
             nn.Sigmoid(),
         )
@@ -68,21 +48,17 @@ class Generator(nn.Module):
         super(Generator, self).__init__()
         self.ngpu = ngpu
         self.main = nn.Sequential(
-
             nn.ConvTranspose2d(100, 128, 4, 1, bias=False),
             nn.GroupNorm(32, 128),
             nn.ReLU(True),
-
             nn.ConvTranspose2d(128, 64, 3, 2, 1, bias=False),
             nn.GroupNorm(32, 64),
             nn.ReLU(True),
-
             nn.ConvTranspose2d(64, 32, 4, 2, 1, bias=False),
             nn.GroupNorm(32, 32),
             nn.ReLU(True),
-
             nn.ConvTranspose2d(32, 1, 4, 2, 1, bias=False),
-            nn.Tanh()
+            nn.Tanh(),
         )
 
     def forward(self, x):
@@ -145,15 +121,14 @@ def elapsed_time_total(start, end):
     hours, rem = divmod(end - start, 3600)
     minutes, seconds = divmod(rem, 60)
     print(
-        "Total Traning Time: {:0>2}:{:0>2}:{:05.2f}"
-        .format(int(hours), int(minutes), seconds)
+        "Total Traning Time: {:0>2}:{:0>2}:{:05.2f}".format(
+            int(hours), int(minutes), seconds
         )
+    )
 
 
 ###################################################################
 
-
-import tenseal as ts
 
 import base64
 
@@ -166,7 +141,7 @@ def write_data(file_name, data):
         # bytes to base64
         data = base64.b64encode(data)
 
-    with open(file_name, 'wb') as f:
+    with open(file_name, "wb") as f:
         f.write(data)
 
 
@@ -194,6 +169,13 @@ pub_socket.bind("tcp://*:5557")
 
 start_total = time.time()
 
+# generate and save keys
+public, private_ring = keygen(n_bits=64, s=1, threshold=2, n_shares=3)
+write_data("key.pub", pickle.dumps(public))
+write_data("key", pickle.dumps(private_ring))
+
+print("Generated and saved keys")
+
 print("The server is running now!")
 
 c = 0
@@ -210,7 +192,6 @@ sum_1 = 0
 sum_2 = 0
 count = 1
 while c < 39:
-
     #     print(G)
     ident1, msg1 = socket.recv_multipart()
     ident2, msg2 = socket.recv_multipart()
@@ -218,7 +199,6 @@ while c < 39:
     string = b"New"
 
     if string == msg1 and string == msg2:
-
         client_num = client_num + 1
 
         message1 = pickle.dumps(vals)
@@ -227,17 +207,19 @@ while c < 39:
         message2 = pickle.dumps(vals1)
         socket.send_multipart([ident2, message2])
 
+        socket.send_string("test")
+
         print("Base model sent to the new client!")
 
     else:
-
         print("Training round started")
 
         message1 = pickle.loads(msg1)
         message2 = pickle.loads(msg2)
 
-        if len(message1) == 8:
+        print(type(message1))
 
+        if len(message1) == 8:
             data_list_dicriminator.append(message1)
         else:
             data_list_generator.append(message1)
@@ -247,60 +229,41 @@ while c < 39:
         else:
             data_list_generator.append(message2)
 
-        if len(data_list_dicriminator) == 2 and len(data_list_generator) == 2:
-
+        if (
+            len(data_list_dicriminator) == n_clients
+            and len(data_list_generator) == n_clients
+        ):
             print("Enough data recevied")
 
             print("len(data_list_dicriminator): ", len(data_list_dicriminator))
             print("len(data_list_generator): ", len(data_list_generator))
 
-            loaded_context = ts.context_from(read_data("public.txt"))
-
-            for i in range(len(data_list_dicriminator)):
-                for j in range(len(data_list_dicriminator[0])):
-                    loaded_enc_dicriminator = ts.ckks_tensor_from(loaded_context, data_list_dicriminator[i][j])
-                    seri_loaded_dis = loaded_enc_dicriminator.serialize()
-                    write_data(f"loaded_enc_dicriminator{i}{j}.txt", seri_loaded_dis)
+            for tensor in range(len(data_list_dicriminator[0])):
+                res = data_list_dicriminator[0][tensor]
+                for client in range(1, len(data_list_dicriminator)):
+                    loaded = data_list_dicriminator[client][tensor]
+                    res = res + loaded
+                    # debug
+                    # loaded.to_tensor(private_key_ring=private_ring)
+                cipher1.append(res)
 
             print("dicriminator encrypted loaded")
 
-            for i in range(len(data_list_generator)):
-                for j in range(len(data_list_generator[0])):
-                    loaded_enc_generator = ts.ckks_tensor_from(loaded_context, data_list_generator[i][j])
-                    seri_loaded_gen = loaded_enc_generator.serialize()
-                    write_data(f"loaded_enc_generator{i}{j}.txt", seri_loaded_gen)
+            for tensor in range(len(data_list_generator[0])):
+                res = data_list_generator[0][tensor]
+                for client in range(1, len(data_list_generator)):
+                    loaded = data_list_generator[client][tensor]
+                    res += loaded
+                cipher2.append(res)
 
             print("generator encrypted loaded")
 
-            for i in range(len(data_list_dicriminator[0])):
-                for j in range(len(data_list_dicriminator)):
-                    enc_read_dis = read_data(f"loaded_enc_dicriminator{j}{i}.txt")
-                    loaded_enc_dis = ts.ckks_tensor_from(loaded_context, enc_read_dis)
-                    sum_1 += loaded_enc_dis
-
-                sum_1 = sum_1 * 0.25
-                sum_final1 = sum_1.serialize()
-                cipher1.append(sum_final1)
-                sum_1 = 0
-                sum_final1 = 0
-
-            print("Avgg dicriminator encrypted computed")
-
-            for i in range(len(data_list_generator[0])):
-                for j in range(len(data_list_generator)):
-                    enc_read_gen = read_data(f"loaded_enc_generator{j}{i}.txt")
-                    loaded_enc_gen = ts.ckks_tensor_from(loaded_context, enc_read_gen)
-                    sum_2 += loaded_enc_gen
-                sum_2 = sum_2 * 0.25
-                sum_final2 = sum_2.serialize()
-                cipher2.append(sum_final2)
-                sum_2 = 0
-                sum_final2 = 0
-
             print("Avgg generator encrypted computed")
 
-            message1 = pickle.dumps(cipher1)
-            message2 = pickle.dumps(cipher2)
+            for item in cipher1:
+                print(type(item))
+            message1 = pickle.dumps(cipher1)  # list of encrypted tensors
+            message2 = pickle.dumps(cipher2)  # list of encrypted tensors
 
             pub_socket.send(message1)
             pub_socket.send(message2)
@@ -322,3 +285,6 @@ while c < 39:
 
 end_total = time.time()
 elapsed_time_total(start_total, end_total)
+
+os.remove("key")
+os.remove("key.pub")
