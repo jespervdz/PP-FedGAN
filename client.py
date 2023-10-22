@@ -57,23 +57,24 @@ def is_pickle_stream(stream):
     except:
         return False
 
+ip = "localhost"
 
 context2 = zmq.Context()
 print("Connecting to key server ...")
 socket = context2.socket(zmq.DEALER)
-socket.connect("tcp://localhost:5555")
+socket.connect(f"tcp://{ip}:5555")
 identity = str(id)
 socket.identity = identity.encode("ascii")
 
 context1 = zmq.Context()
 print("Connecting to hello world server…")
 socket1 = context1.socket(zmq.DEALER)
-socket1.connect("tcp://localhost:5556")
+socket1.connect(f"tcp://{ip}:5556")
 identity = str(id)
 socket1.identity = identity.encode("ascii")
 
 sub_socket = context2.socket(zmq.SUB)
-sub_socket.connect("tcp://localhost:5557")
+sub_socket.connect(f"tcp://{ip}:5557")
 sub_socket.setsockopt_string(zmq.SUBSCRIBE, "")
 
 
