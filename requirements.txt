@@ -1,10 +1,11 @@
 torch
 torchvision
-tenseal
 matplotlib
 tqdm
+zmq
 torchsummary
 opacus
 imutils
 opencv-python
-matplot-backend-kitty
+matplotlib-backend-kitty
+gmpy2

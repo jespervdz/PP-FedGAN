@@ -23,8 +23,6 @@ class EncryptedTensor:
         self.divisor = divisor
 
     def __add__(self, other):
-        print(f"Addition of {self.shape} and {other.shape}")
-
         if not self._shape_equal(other):
             raise ValueError("Shapes must be equal for addition of tensors")
 

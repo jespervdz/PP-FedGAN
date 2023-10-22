@@ -1,7 +1,5 @@
 from __future__ import print_function
 
-import random
-
 import numpy
 import pickle
 from collections import OrderedDict
@@ -17,16 +15,11 @@ from uuid import uuid4
 import uuid
 import warnings
 
-warnings.filterwarnings("ignore")
+warnings.filterwarnings('ignore')
 numpy.set_printoptions(suppress=False)
 torch.set_printoptions(sci_mode=False)
-# torch.set_num_threads(5)
-# import tenseal as ts
-import tenseal.sealapi as sealapi
-from damgard_jurik import PrivateKeyRing
+import tenseal as ts
 import pickle
-import time
-from tensor import EncryptedTensor
 
 import base64
 
@@ -39,7 +32,7 @@ def write_data(file_name, data):
         # bytes to base64
         data = base64.b64encode(data)
 
-    with open(file_name, "wb") as f:
+    with open(file_name, 'wb') as f:
         f.write(data)
 
 
@@ -74,7 +67,7 @@ socket1.identity = identity.encode("ascii")
 
 sub_socket = context2.socket(zmq.SUB)
 sub_socket.connect("tcp://localhost:5557")
-sub_socket.setsockopt_string(zmq.SUBSCRIBE, "")
+sub_socket.setsockopt_string(zmq.SUBSCRIBE, '')
 
 
 def train(discriminator_arrived, generator_arrived):
@@ -90,8 +83,7 @@ def train(discriminator_arrived, generator_arrived):
     from opacus import PrivacyEngine
     from tqdm import tqdm
     import matplotlib
-
-    matplotlib.use("module://matplotlib-backend-kitty")
+    matplotlib.use('module://matplotlib-backend-kitty')
     import matplotlib.pyplot as plt
     import time
 
@@ -110,7 +102,7 @@ def train(discriminator_arrived, generator_arrived):
 
     nc = 1
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     disable_dp = True
 
@@ -132,19 +124,17 @@ def train(discriminator_arrived, generator_arrived):
         hours, rem = divmod(end - start, 3600)
         minutes, seconds = divmod(rem, 60)
         print(
-            "Elapsed Time: {:0>2}:{:0>2}:{:05.2f}".format(
-                int(hours), int(minutes), seconds
+            "Elapsed Time: {:0>2}:{:0>2}:{:05.2f}"
+            .format(int(hours), int(minutes), seconds)
             )
-        )
 
     def elapsed_time_total(start, end):
         hours, rem = divmod(end - start, 3600)
         minutes, seconds = divmod(rem, 60)
         print(
-            "Total Traning Time: {:0>2}:{:0>2}:{:05.2f}".format(
-                int(hours), int(minutes), seconds
+            "Total Traning Time: {:0>2}:{:0>2}:{:05.2f}"
+            .format(int(hours), int(minutes), seconds)
             )
-        )
 
     manualSeed = random.randint(1, 50000)
 
@@ -154,7 +144,7 @@ def train(discriminator_arrived, generator_arrived):
 
     try:
         dataset = datasets.MNIST(
-            root="PP-FEDGAN/Data",
+            root='PP-FEDGAN/Data',
             download=True,
             transform=transforms.Compose(
                 [
@@ -190,33 +180,35 @@ def train(discriminator_arrived, generator_arrived):
         hours, rem = divmod(end - start, 3600)
         minutes, seconds = divmod(rem, 60)
         print(
-            "Elapsed Time: {:0>2}:{:0>2}:{:05.2f}".format(
-                int(hours), int(minutes), seconds
+            "Elapsed Time: {:0>2}:{:0>2}:{:05.2f}"
+            .format(int(hours), int(minutes), seconds)
             )
-        )
 
     def elapsed_time_total(start, end):
         hours, rem = divmod(end - start, 3600)
         minutes, seconds = divmod(rem, 60)
         print(
-            "Total Traning Time: {:0>2}:{:0>2}:{:05.2f}".format(
-                int(hours), int(minutes), seconds
+            "Total Traning Time: {:0>2}:{:0>2}:{:05.2f}"
+            .format(int(hours), int(minutes), seconds)
             )
-        )
 
     class Discriminator(nn.Module):
         def __init__(self, ngpu):
             super(Discriminator, self).__init__()
             self.ngpu = ngpu
             self.main = nn.Sequential(
+
                 nn.Conv2d(1, 32, 4, 2, 1, bias=False),
                 nn.LeakyReLU(negative_slope=0.2, inplace=True),
+
                 nn.Conv2d(32, 64, 4, 2, 1, bias=False),
                 nn.GroupNorm(64, 64),
                 nn.LeakyReLU(negative_slope=0.2, inplace=True),
+
                 nn.Conv2d(64, 128, 3, 2, 1, bias=False),
                 nn.GroupNorm(64, 128),
                 nn.LeakyReLU(negative_slope=0.2, inplace=True),
+
                 nn.Conv2d(128, 1, kernel_size=(4, 4), stride=1, bias=False),
                 nn.Sigmoid(),
             )
@@ -230,17 +222,21 @@ def train(discriminator_arrived, generator_arrived):
             super(Generator, self).__init__()
             self.ngpu = ngpu
             self.main = nn.Sequential(
+
                 nn.ConvTranspose2d(100, 128, 4, 1, bias=False),
                 nn.GroupNorm(32, 128),
                 nn.ReLU(True),
+
                 nn.ConvTranspose2d(128, 64, 3, 2, 1, bias=False),
                 nn.GroupNorm(32, 64),
                 nn.ReLU(True),
+
                 nn.ConvTranspose2d(64, 32, 4, 2, 1, bias=False),
                 nn.GroupNorm(32, 32),
                 nn.ReLU(True),
+
                 nn.ConvTranspose2d(32, 1, 4, 2, 1, bias=False),
-                nn.Tanh(),
+                nn.Tanh()
             )
 
         def forward(self, x):
@@ -278,18 +274,17 @@ def train(discriminator_arrived, generator_arrived):
     #             final_dd = (loaded_enc_dis_1.decrypt().tolist())
     #             print(len(final_dd))
 
-    print("Starting decryption of received model")
-    decrypt_time = time.time()
-
-    # Decode EncryptedTensors to Tensors given the private keys for both models
-    if isinstance(discriminator_arrived[0], EncryptedTensor):
-        valss_d = [
-            d.to_tensor(private_key_ring=private_ring) for d in discriminator_arrived
-        ]
-    elif isinstance(discriminator_arrived[0], torch.Tensor):
-        valss_d = discriminator_arrived
+    if isinstance(discriminator_arrived[0], (bytes, bytearray)):
+        print("byte")
+        for i in range(len(discriminator_arrived)):
+            loaded_enc_dis = ts.ckks_tensor_from(context, discriminator_arrived[i])
+            final_d = (loaded_enc_dis.decrypt().tolist())
+            final__d = (numpy.reshape(final_d, shape_d[i].shape))
+            valss_d.append(torch.from_numpy(final__d))
+    #
     else:
-        raise ValueError(f"Unexpected type {type(discriminator_arrived[0])}")
+        print("Not byte")
+        valss_d = discriminator_arrived
 
     generator_old = G.state_dict()
     shape_g = []
@@ -300,16 +295,19 @@ def train(discriminator_arrived, generator_arrived):
     valss_g = []
     de_ser_g = []
 
-    if isinstance(generator_arrived[0], (EncryptedTensor)):
-        valss_g = [
-            g.to_tensor(private_key_ring=private_ring) for g in generator_arrived
-        ]
-    elif isinstance(generator_arrived[0], torch.Tensor):
-        valss_g = generator_arrived
+    if isinstance(generator_arrived[0], (bytes, bytearray)):
+        print("byte")
+        for i in range(len(generator_arrived)):
+            loaded_enc_gen = ts.ckks_tensor_from(context, generator_arrived[i])
+            final_g = (loaded_enc_gen.decrypt().tolist())
+            #             print(len(final))
+            final__g = (numpy.reshape(final_g, shape_g[i].shape))
+            valss_g.append(torch.from_numpy(final__g))
+    #         print(valss)
+    #
     else:
-        raise ValueError(f"Unexpected type {type(generator_arrived[0])}")
-
-    print("--- Decryption finished in %s seconds ---" % (time.time() - decrypt_time))
+        print("Not byte")
+        valss_g = generator_arrived
 
     #######################################################
     i = 0
@@ -347,9 +345,10 @@ def train(discriminator_arrived, generator_arrived):
     optim_D = optim.Adam(D.parameters(), lr=lr, betas=(beta1, 0.999))
 
     if not disable_dp:
-        privacy_engine = PrivacyEngine()
+        privacy_engine = PrivacyEngine(D)
 
         D, optim_D, dataloader = privacy_engine.make_private(
+
             module=D,
             optimizer=optim_D,
             data_loader=dataloader,
@@ -365,6 +364,7 @@ def train(discriminator_arrived, generator_arrived):
     fixed_noise1 = torch.randn(16, 100, 1, 1).cuda()
 
     for epoch in range(epochs):
+
         start = time.time()
 
         data_bar = tqdm(dataloader)
@@ -444,7 +444,6 @@ def train(discriminator_arrived, generator_arrived):
         # and generate the montage
 
         from random import randrange
-
         c = randrange(1000)
 
         #         if (iters % 500 == 0):
@@ -469,9 +468,7 @@ def train(discriminator_arrived, generator_arrived):
 
         fig = plt.figure(figsize=(5, 5))
         rand_noise = torch.rand((64, 100, 1, 1))
-        out = vutils.make_grid(
-            G(rand_noise.to(device)).cpu().detach(), padding=5, normalize=True
-        )
+        out = vutils.make_grid(G(rand_noise.to(device)).cpu().detach(), padding=5, normalize=True)
         plt.imshow(np.transpose(out.numpy(), (1, 2, 0)), cmap="gray")
         plt.show()
 
@@ -524,18 +521,15 @@ def train(discriminator_arrived, generator_arrived):
     #     keys_d = numpy.array(keys_d)
     #     vals_d = numpy.array(vals_d)
 
-    start_time = time.time()
-    cipher_d = [EncryptedTensor.Create(tensor=val, public_key=public) for val in vals_d]
-    # for i in range(len(vals_d)):
-    #     cipher_d.append(EncryptedTensor(tensor=vals_d[i], public_key=public))
-
-    # print(vals_d[i].shape)
-    # encrypted_tensor_d = ts.ckks_tensor(context, vals_d[i], batch=True)
-    # print(encrypted_tensor_d)
-    # ser_tensor_d = encrypted_tensor_d.serialize()
-    # print(len(ser_tensor_d))
-    # cipher_d.append(ser_tensor_d)
-    # print(len(cipher_d))
+    cipher_d = []
+    for i in range(len(vals_d)):
+        print(vals_d[i].shape)
+        encrypted_tensor_d = ts.ckks_tensor(context, vals_d[i], batch=True)
+        print(encrypted_tensor_d)
+        ser_tensor_d = encrypted_tensor_d.serialize()
+        print(len(ser_tensor_d))
+        cipher_d.append(ser_tensor_d)
+        print(len(cipher_d))
 
     model_last_g = G.state_dict()
 
@@ -549,15 +543,11 @@ def train(discriminator_arrived, generator_arrived):
     #     keys_g = numpy.array(keys_g)
     #     vals_g = numpy.array(vals_g)
 
-    cipher_g = [EncryptedTensor.Create(tensor=val, public_key=public) for val in vals_g]
-    # for i in range(len(vals_g)):
-    #     cipher_g.append(EncryptedTensor(tensor=vals_g[i], public_key=public))
-
-    # encrypted_tensor_g = ts.ckks_tensor(context, vals_g[i], batch=True)
-    # ser_tensor_g = encrypted_tensor_g.serialize()
-    # cipher_g.append(ser_tensor_g)
-
-    print("--- Encryption finished in %s seconds ---" % (time.time() - start_time))
+    cipher_g = []
+    for i in range(len(vals_g)):
+        encrypted_tensor_g = ts.ckks_tensor(context, vals_g[i], batch=True)
+        ser_tensor_g = encrypted_tensor_g.serialize()
+        cipher_g.append(ser_tensor_g)
 
     #######################################################
 
@@ -568,25 +558,18 @@ def train(discriminator_arrived, generator_arrived):
 
 
 # context = ts.context_from(read_data("secret.txt"))
-# load keys
-public = pickle.loads(read_data("key.pub"))
-private_ring: PrivateKeyRing = pickle.loads(read_data("key"))
-
-# remove random share to keep 2/3, manually re-init PrivateKeyRing
-private_ring.private_key_shares.pop(
-    random.randrange(len(private_ring.private_key_shares))
-)
-private_ring.i_list = [pks.i for pks in private_ring.private_key_shares]
-private_ring.S = set(private_ring.i_list)
-
-print(f"Received keys: {len(private_ring.private_key_shares)} private key shares")
+context = ts.context(ts.SCHEME_TYPE.CKKS, poly_modulus_degree=8192, coeff_mod_bit_sizes=[60, 40, 40, 60])
+context.generate_galois_keys()
+context.global_scale = 2 ** 40
 
 n_rounds = 10
 
 for request in range(n_rounds):
+
     print("request in loop: ", request)
 
     if request == 0:
+
         print("request in if", request)
         message = b"New"
         socket.send(message)
@@ -607,14 +590,12 @@ for request in range(n_rounds):
     if is_pickle_stream(discriminator) and is_pickle_stream(generator):
         discriminator = pickle.loads(discriminator)
         generator = pickle.loads(generator)
-        print(f"if train started")
-        print(type(discriminator[0]))
-        print(len(discriminator))
+        print("if train started")
         cipher_d, cipher_g = train(discriminator, generator)
         print("len(cipher_d):   ", len(cipher_d))
         print("len(cipher_g):   ", len(cipher_g))
     else:
-        print(f"else train started: {type(discriminator)} {type(generator)}")
+        print("else train started")
         cipher_d, cipher_g = train(discriminator, generator)
         print("len(cipher_d):   ", len(cipher_d))
         print("len(cipher_g):   ", len(cipher_g))
